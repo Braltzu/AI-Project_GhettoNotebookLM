@@ -1,7 +1,9 @@
 streamlit==1.32.0
 langchain>=0.1.0
 langchain-openai
-pypdf2
+langchain-community
+pypdf
 pdfplumber
 python-dotenv
-azure.storage.blob
+azure-storage-blob
+chromadb

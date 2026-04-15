@@ -1,41 +1,57 @@
 import os
-import streamlit as st
 from dotenv import load_dotenv
-from langchain_openai import AzureChatOpenAI, OpenAIEmbeddings
-from langchain.chains import RetrievalQA
-# Note: LangChain is modular; you usually import specific components 
-# rather than the whole library.
-from PyPDF2 import PdfReader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import Chroma
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
-
+from azure.storage.blob import BlobServiceClient, BlobClient
+from typing import Union
 
 # Load variables from a .env file
 load_dotenv()
 
-# Asetukset (haetaan esim. ympäristömuuttujista)
+# Asetukset
 AZURE_STORAGE_CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STR"]
-CONTAINER_NAME = os.environ["CONTAINER_NAME"]
+CONTAINER_NAME: str = os.environ["CONTAINER_NAME"]
 
-
-def tallenna_azureen(tiedosto_polku, tiedoston_nimi):
+def upload_to_azure(file_path: str, file_name: str) -> str:
+    """Lataa yksittäisen tiedoston Azureen."""
     try:
-        # 1. Luodaan yhteys Azureen
         blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-        
-        # 2. Haetaan viite containeriin (kansioon)
-        blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=tiedoston_nimi)
+        blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=file_name)
 
-        # 3. Luetaan paikallinen tiedosto ja lähetetään se
-        print(f"Ladataan tiedostoa: {tiedoston_nimi}...")
-        with open(tiedosto_polku, "rb") as data:
+        print(f"Ladataan: '{file_name}'...")
+        with open(file_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
             
-        return f"Tiedosto {tiedoston_nimi} on nyt tallennettu Azureen."
+        return f"Tiedosto '{file_name}' ladattu onnistuneesti."
     
     except Exception as e:
-        return f"Virhe latauksessa: {e}"
+        return f"Virhe tiedoston '{file_name}' kohdalla: {e}"
 
-# Testikäyttö
-# tallenna_azureen("kokeen_aiheet.pdf", "biologia_koe_1.pdf")
+if __name__ == "__main__":
+    print("\n--- Aloitetaan kansion skannaus ja lataus ---")
+
+    # 1. Määritetään kansio
+    source_dir = "FILES_TO_Process"
+    
+    # Varmistetaan että kansio on olemassa
+    if not os.path.exists(source_dir):
+        print(f"Virhe: Kansiota '{source_dir}' ei löydy!")
+        os.makedirs(source_dir)
+        print(f"Kansio '{source_dir}' luotu. Lisää sinne tiedostoja ja aja skripti uudelleen.")
+    else:
+        # 2. Listataan kaikki tiedostot kansiossa
+        files = [f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))]
+        
+        if not files:
+            print("Kansiosta ei löytynyt ladattavia tiedostoja.")
+        else:
+            print(f"Löytyi {len(files)} tiedostoa. Aloitetaan siirto...")
+            
+            # 3. Käydään tiedostot läpi silmukassa
+            for filename in files:
+                # Muodostetaan täysi polku tiedostoon
+                full_path = os.path.join(source_dir, filename)
+                
+                # Kutsutaan latausfunktiota
+                tulos = upload_to_azure(full_path, filename)
+                print(tulos)
+
+    print("--- Prosessi valmis ---\n")
