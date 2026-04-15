@@ -22,7 +22,6 @@ with st.expander("Settings"):
         options=["Short", "Medium", "Long"],
         value="Medium"
     )
-    focus_area = st.text_input("Specific focus area (optional):")
 
 if uploaded_file:
     # Checking that instructions are not empty before generation
