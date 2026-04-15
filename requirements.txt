@@ -4,3 +4,4 @@ langchain-openai
 pypdf2
 pdfplumber
 python-dotenv
+azure.storage.blob
