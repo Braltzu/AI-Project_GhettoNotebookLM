@@ -1,7 +1,15 @@
+
+#Haku osuuteen tarvittavat kirjastot
 import os
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient, BlobClient
-from typing import Union
+
+#Query ja muuhun
+from typing import Union, TypedDict
+from langchain_community.retrievers import AzureAISearchRetriever
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import AzureChatOpenAI
+from langgraph.graph import END, START, StateGraph
 
 # Load variables from a .env file
 load_dotenv()
@@ -55,3 +63,121 @@ if __name__ == "__main__":
                 print(tulos)
 
     print("--- Prosessi valmis ---\n")
+
+
+
+    #--------------------LÄHETYS OSUUS OHI---------------------------------------------------------------
+
+    #Tähän vielä data prosessointi mikä tuottaa prosessoidun tiedoston aiheesta x
+
+    #-------------------QUERY & HAKU OSUUS ALKAA-------------------------------------------------------
+
+
+AZURE_SERVICE    = os.environ["AZURE_SEARCH_SERVICE_NAME"]
+AZURE_INDEX      = os.environ["AZURE_SEARCH_INDEX_NAME"]
+AZURE_KEY        = os.environ["AZURE_SEARCH_API_KEY"]
+CONTENT_FIELD    = os.getenv("AZURE_SEARCH_CONTENT_FIELD", "content")
+TOP_K            = int(os.getenv("AZURE_SEARCH_TOP_K", "3"))
+
+AOAI_ENDPOINT    = os.environ["AZURE_OPENAI_ENDPOINT"]
+AOAI_KEY         = os.environ["AZURE_OPENAI_API_KEY"]
+AOAI_DEPLOYMENT  = os.environ["AZURE_OPENAI_DEPLOYMENT"]
+AOAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+
+# ─── Managed retriever ────────────────────────────────────────────────────────
+#
+# This is the whole point of "managed" RAG.
+# Instead of a local Chroma vector store, we point at an Azure AI Search index.
+# Azure handles embedding at query time if semantic/vector search is configured.
+#
+retriever = AzureAISearchRetriever(
+    service_name=AZURE_SERVICE,
+    index_name=AZURE_INDEX,
+    api_key=AZURE_KEY,
+    content_key=CONTENT_FIELD,   # the field in your index that contains the text
+    top_k=TOP_K,
+)
+
+# ─── LLM (Azure OpenAI via Azure AI Foundry) ─────────────────────────────────
+#
+# AzureChatOpenAI connects to a model deployment in your Azure AI Foundry hub.
+# The deployment name is set in the Portal — it's not the model name itself.
+#
+llm = AzureChatOpenAI(
+    azure_endpoint=AOAI_ENDPOINT,
+    api_key=AOAI_KEY,
+    azure_deployment=AOAI_DEPLOYMENT,
+    api_version=AOAI_API_VERSION,
+)
+
+# ─── State ────────────────────────────────────────────────────────────────────
+
+class State(TypedDict):
+    query: str           # user question
+    context: list[str]   # chunks returned by Azure AI Search
+    answer: str          # final LLM response
+
+
+# ─── Nodes ────────────────────────────────────────────────────────────────────
+
+def retrieve(state: State) -> dict:
+    """
+    Query Azure AI Search.
+    Azure handles the vector search / semantic ranking server-side.
+    We receive ready-to-use text chunks — no local embedding required.
+    """
+    docs = retriever.invoke(state["query"])
+    return {"context": [doc.page_content for doc in docs]}
+
+
+def generate(state: State) -> dict:
+    """Generate an answer grounded in the retrieved chunks."""
+    context_block = "\n\n---\n\n".join(state["context"])
+
+    messages = [
+        SystemMessage(content=(
+            "You are a helpful assistant. "
+            "Answer the user's question using ONLY the provided context. "
+            "If the context doesn't contain enough information, say so clearly."
+        )),
+        HumanMessage(content=(
+            f"Context:\n\n{context_block}\n\n"
+            f"Question: {state['query']}"
+        )),
+    ]
+
+    response = llm.invoke(messages)
+    return {"answer": response.content}
+
+
+# ─── Graph ────────────────────────────────────────────────────────────────────
+
+builder = StateGraph(State)
+
+builder.add_node("retrieve", retrieve)
+builder.add_node("generate", generate)
+
+builder.add_edge(START, "retrieve")
+builder.add_edge("retrieve", "generate")
+builder.add_edge("generate", END)
+
+graph = builder.compile()
+
+
+# ─── Run ──────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    query = input("Ask a question about your documents: ").strip()
+
+    print(f"\n{'=' * 60}")
+    print(f"Query: {query}")
+    print("-" * 60)
+
+    result = graph.invoke({"query": query})
+
+    print(f"Retrieved {len(result['context'])} chunk(s) from Azure AI Search:\n")
+    for i, chunk in enumerate(result["context"], 1):
+        preview = chunk[:200].replace("\n", " ")
+        print(f"  [{i}] {preview}...")
+
+    print(f"\nAnswer:\n{result['answer']}")
