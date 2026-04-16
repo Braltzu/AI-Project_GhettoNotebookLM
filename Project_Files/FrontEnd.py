@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.set_page_config(page_title="GhettoNotebookLM PDF-summarizer")
-st.title("GhettoNotebookLM PDF-summarizer")
+st.markdown("<h1 style='text-align: center;'>GhettoNotebookLM PDF-summarizer</h1>", unsafe_allow_html = True)
 
 # File uploader (PDF and TXT)
 uploaded_file = st.file_uploader("Choose file", type=["pdf", "txt"])
