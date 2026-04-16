@@ -2,8 +2,9 @@ streamlit==1.32.0
 langchain>=0.1.0
 langchain-openai
 langchain-community
-pypdf
-pdfplumber
+langchain-core
+langgraph
+azure-search-documents
 python-dotenv
 azure-storage-blob
 chromadb
