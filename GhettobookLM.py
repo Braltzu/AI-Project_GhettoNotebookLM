@@ -18,6 +18,9 @@ load_dotenv()
 AZURE_STORAGE_CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STR"]
 CONTAINER_NAME: str = os.environ["CONTAINER_NAME"]
 
+
+
+
 def upload_to_azure(file_path: str, file_name: str) -> str:
     """Lataa yksittäisen tiedoston Azureen."""
     try:
@@ -32,6 +35,8 @@ def upload_to_azure(file_path: str, file_name: str) -> str:
     
     except Exception as e:
         return f"Virhe tiedoston '{file_name}' kohdalla: {e}"
+
+
 
 if __name__ == "__main__":
     print("\n--- Aloitetaan kansion skannaus ja lataus ---")
@@ -165,19 +170,29 @@ graph = builder.compile()
 
 
 # ─── Run ──────────────────────────────────────────────────────────────────────
+#Query loop where you can ask anyting from the given files
 
 if __name__ == "__main__":
-    query = input("Ask a question about your documents: ").strip()
+    #query = input("To begin asking questions write 'Start'").strip()
+    while True:
+        query = input("Ask a question about your documents (or type 'exit' to quit): ").strip()
+        if query.lower() == 'exit':
+            print("Exiting. Goodbye")
+            break
+        if not query:
+            print("Please enter a question.")
+            continue
 
-    print(f"\n{'=' * 60}")
-    print(f"Query: {query}")
-    print("-" * 60)
+        print(f"\n{'=' * 60}")
+        print(f"Query: {query}")
+        print("-" * 60)
 
-    result = graph.invoke({"query": query})
+        result = graph.invoke({"query": query})
 
-    print(f"Retrieved {len(result['context'])} chunk(s) from Azure AI Search:\n")
-    for i, chunk in enumerate(result["context"], 1):
-        preview = chunk[:200].replace("\n", " ")
-        print(f"  [{i}] {preview}...")
+        print(f"Retrieved {len(result['context'])} chunk(s) from Azure AI Search:\n")
+        for i, chunk in enumerate(result["context"], 1):
+            preview = chunk[:200].replace("\n", " ")
+            print(f"  [{i}] {preview}...")
 
-    print(f"\nAnswer:\n{result['answer']}")
+        print(f"\nAnswer:\n{result['answer']}")
+        print("\n" + "=" * 60 + "\n")
