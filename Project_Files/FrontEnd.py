@@ -3,12 +3,16 @@ import streamlit as st
 st.set_page_config(page_title="GhettoNotebookLM PDF-summarizer")
 st.title("GhettoNotebookLM PDF-summarizer")
 
+# File uploader (PDF and TXT)
 uploaded_file = st.file_uploader("Choose file", type=["pdf", "txt"])
+
 
 if uploaded_file:
     file_type = uploaded_file.type.split("/")[-1].upper()
     st.caption(f"📄 Loaded: `{uploaded_file.name}` ({file_type})")
 
+
+# Text area for intructions with maximum length of 400 characters
 user_query = st.text_area(
     "Instructions for AI:",
     placeholder="E.g. 'Summarize this into 5 bullet points'",
@@ -16,8 +20,10 @@ user_query = st.text_area(
     help="Maximum length is 400 characters (approx. 100 tokens)."
 )
 
+# A counter that shows how many characters the user has typed out of the limit (400)
 st.caption(f"Characters used: {len(user_query)}/400")
 
+# Settings expansion where the user can select the summary length from three categories: short, medium, and long
 with st.expander("Settings"):
     summary_length = st.select_slider(
         "Summary length:",
