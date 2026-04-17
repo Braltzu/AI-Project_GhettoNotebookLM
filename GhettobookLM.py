@@ -3,6 +3,7 @@
 import os
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient, BlobClient
+from fpdf import FPDF
 
 #Query ja muuhun
 from typing import Union, TypedDict
@@ -17,6 +18,18 @@ load_dotenv()
 # Asetukset
 AZURE_STORAGE_CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STR"]
 CONTAINER_NAME: str = os.environ["CONTAINER_NAME"]
+
+
+AZURE_SERVICE    = os.environ["AZURE_SEARCH_SERVICE_NAME"]
+AZURE_INDEX      = os.environ["AZURE_SEARCH_INDEX_NAME"]
+AZURE_KEY        = os.environ["AZURE_SEARCH_API_KEY"]
+CONTENT_FIELD    = os.getenv("AZURE_SEARCH_CONTENT_FIELD", "content")
+TOP_K            = int(os.getenv("AZURE_SEARCH_TOP_K", "3"))
+
+AOAI_ENDPOINT    = os.environ["AZURE_OPENAI_ENDPOINT"]
+AOAI_KEY         = os.environ["AZURE_OPENAI_API_KEY"]
+AOAI_DEPLOYMENT  = os.environ["AZURE_OPENAI_DEPLOYMENT"]
+AOAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 
 
@@ -69,25 +82,47 @@ if __name__ == "__main__":
 
     print("--- Prosessi valmis ---\n")
 
-
-
     #--------------------LÄHETYS OSUUS OHI---------------------------------------------------------------
 
+
+
+
     #Tähän vielä data prosessointi mikä tuottaa prosessoidun tiedoston aiheesta x
+    def save_as_pdf(answer_text, query_text):
+        output_dir = "Processed_Files"
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+    
+        clean_name = "".join(x for x in query_text[:20] if x.isalnum()) or "summary"
+        file_path = os.path.join(output_dir, f"{clean_name}.pdf")
 
-    #-------------------QUERY & HAKU OSUUS ALKAA-------------------------------------------------------
+        pdf = FPDF()
+        pdf.add_page()
+
+        #title
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, txt="AI Transformation Result", ln=True, align='C')
+        pdf.ln(5)
+
+        #Sub-header
+        pdf.set_font("Arial", 'I', 10)
+        pdf.multi_cell(0, 10, txt=f"Based on query: {query_text}")
+        pdf.ln(5)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+
+        #context
+        pdf.set_font("Arial", size=12)
+        safe_text = answer_text.encode('latin-1', 'replace').decode('latin-1')
+        pdf.multi_cell(0, 10, txt=safe_text)
+
+        pdf.output(file_path)
+        return file_path
+
+        
 
 
-AZURE_SERVICE    = os.environ["AZURE_SEARCH_SERVICE_NAME"]
-AZURE_INDEX      = os.environ["AZURE_SEARCH_INDEX_NAME"]
-AZURE_KEY        = os.environ["AZURE_SEARCH_API_KEY"]
-CONTENT_FIELD    = os.getenv("AZURE_SEARCH_CONTENT_FIELD", "content")
-TOP_K            = int(os.getenv("AZURE_SEARCH_TOP_K", "3"))
-
-AOAI_ENDPOINT    = os.environ["AZURE_OPENAI_ENDPOINT"]
-AOAI_KEY         = os.environ["AZURE_OPENAI_API_KEY"]
-AOAI_DEPLOYMENT  = os.environ["AZURE_OPENAI_DEPLOYMENT"]
-AOAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+#-------------------QUERY & HAKU OSUUS ALKAA-------------------------------------------------------
 
 # ─── Managed retriever ────────────────────────────────────────────────────────
 #
@@ -195,4 +230,18 @@ if __name__ == "__main__":
             print(f"  [{i}] {preview}...")
 
         print(f"\nAnswer:\n{result['answer']}")
+
+
+        #PDF tallennus
+        try:
+            path = save_as_pdf(result['answer'], query)
+            print(f"✅ Success! Your new document is ready at: {path}")
+        except Exception as e:
+            print(f"❌ Error saving PDF: {e}")
+
+
         print("\n" + "=" * 60 + "\n")
+
+
+
+

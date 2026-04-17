@@ -8,3 +8,4 @@ azure-search-documents
 python-dotenv
 azure-storage-blob
 chromadb
+fpdf
