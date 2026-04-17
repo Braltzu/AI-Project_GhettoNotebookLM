@@ -33,11 +33,21 @@ AOAI_DEPLOYMENT  = os.environ["AZURE_OPENAI_DEPLOYMENT"]
 AOAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 
-
+#Määrittää topicin automaattisesti LLM kautta pt1
 def identify_topic(file_path: str) -> str:
     reader = PdfReader(file_path)
-    
 
+    text_sample=""
+    for page in reader.pages[:2]: #reads first two pages
+        text_sample += page.extract_text()
+
+    prompt =f"Analyze the following text and return ONLY a one-word category (e.g. Biology, Finance, Legal, Physics) that describes it:\n\n{text_sample[:2000]}"
+    response = llm.invoke(prompt)
+    topic = response.content.strip().replace(".", "")
+    return topic
+
+
+#Upload to azure: This is where the files get sent to azure blob storage to be processed/indexed
 def upload_to_azure(file_path: str, file_name: str) -> str:
     """Lataa yksittäisen tiedoston Azureen."""
     try:
@@ -54,13 +64,22 @@ def upload_to_azure(file_path: str, file_name: str) -> str:
         return f"Virhe tiedoston '{file_name}' kohdalla: {e}"
 
 
-
+#Mainly just does stuff to the directories that make it possible to handle/process the files
 if __name__ == "__main__":
     print("\n--- Aloitetaan kansion skannaus ja lataus ---")
 
     # 1. Määritetään kansio
     source_dir = "FILES_TO_Process"
-    
+
+    #määritellään topic automaattisesti LLM kautta pt2
+    files = [f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))]
+    for filename in files:
+        full_path = os.path.join(source_dir, filename)
+        auto_topic = identify_topic(full_path)
+        upload_to_azure(full_path, filename, auto_topic)
+
+
+
     # Varmistetaan että kansio on olemassa
     if not os.path.exists(source_dir):
         print(f"Virhe: Kansiota '{source_dir}' ei löydy!")
