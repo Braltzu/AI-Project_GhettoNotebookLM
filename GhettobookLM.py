@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient, BlobClient
 from fpdf import FPDF
+from pypdf import PdfReader
 
 #Query ja muuhun
 from typing import Union, TypedDict
@@ -33,6 +34,9 @@ AOAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 
 
+def identify_topic(file_path: str) -> str:
+    reader = PdfReader(file_path)
+    
 
 def upload_to_azure(file_path: str, file_name: str) -> str:
     """Lataa yksittäisen tiedoston Azureen."""
