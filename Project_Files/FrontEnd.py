@@ -58,14 +58,14 @@ if generate:
                 data = response.json()
 
             except requests.exceptions.ConnectionError:
-                st.error("❌ Could not connect to the backend. Is it running on localhost:8000?")
+                st.error("Could not connect to the backend. Is it running on localhost:8000?")
                 st.stop()
             except requests.exceptions.HTTPError as e:
-                st.error(f"❌ Backend error: {e.response.text}")
+                st.error(f"Backend error: {e.response.text}")
                 st.stop()
 
         # ── Show result ───────────────────────────────────────────────────────
-        st.success(f"✅ Done! Used {data['chunks_used']} context chunk(s) from Azure Search.")
+        st.success(f"Done! Used {data['chunks_used']} context chunk(s) from Azure Search.")
         st.write("### AI Response")
         st.write(data["answer"])
 
@@ -75,7 +75,7 @@ if generate:
 
         if pdf_response.status_code == 200:
             st.download_button(
-                label="📥 Download as PDF",
+                label="Download as PDF",
                 data=pdf_response.content,
                 file_name=pdf_filename,
                 mime="application/pdf",
