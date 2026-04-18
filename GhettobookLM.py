@@ -33,6 +33,43 @@ AOAI_DEPLOYMENT  = os.environ["AZURE_OPENAI_DEPLOYMENT"]
 AOAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 
 
+
+
+# ─── Managed retriever ────────────────────────────────────────────────────────
+#
+# This is the whole point of "managed" RAG.
+# Instead of a local Chroma vector store, we point at an Azure AI Search index.
+# Azure handles embedding at query time if semantic/vector search is configured.
+#
+retriever = AzureAISearchRetriever(
+    service_name=AZURE_SERVICE,
+    index_name=AZURE_INDEX,
+    api_key=AZURE_KEY,
+    content_key=CONTENT_FIELD,   # the field in your index that contains the text
+    top_k=TOP_K,
+)
+
+# ─── LLM (Azure OpenAI via Azure AI Foundry) ─────────────────────────────────
+#
+# AzureChatOpenAI connects to a model deployment in your Azure AI Foundry hub.
+# The deployment name is set in the Portal — it's not the model name itself.
+#
+llm = AzureChatOpenAI(
+    azure_endpoint=AOAI_ENDPOINT,
+    api_key=AOAI_KEY,
+    azure_deployment=AOAI_DEPLOYMENT,
+    api_version=AOAI_API_VERSION,
+)
+
+# ─── State ────────────────────────────────────────────────────────────────────
+
+class State(TypedDict):
+    query: str           # user question
+    context: list[str]   # chunks returned by Azure AI Search
+    answer: str          # final LLM response
+
+
+
 #Määrittää topicin automaattisesti LLM kautta pt1
 def identify_topic(file_path: str) -> str:
     reader = PdfReader(file_path)
@@ -41,9 +78,10 @@ def identify_topic(file_path: str) -> str:
     for page in reader.pages[:2]: #reads first two pages
         text_sample += page.extract_text()
 
-    prompt =f"Analyze the following text and return ONLY a one-word category (e.g. Biology, Finance, Legal, Physics) that describes it:\n\n{text_sample[:2000]}"
+    prompt =f"Analyze the following text and return ONLY a one-word specific category topic(e.g ,Coding, Python, Cooking, Person, Algorithm, Function) that describes it:\n\n{text_sample[:2000]}"
     response = llm.invoke(prompt)
     topic = response.content.strip().replace(".", "")
+    print(f"(Identify_topic) stripped Topic: {topic}")
     return topic
 
 
@@ -54,11 +92,11 @@ def upload_to_azure(file_path: str, file_name: str) -> str:
         blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
         blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=file_name)
 
-        print(f"Ladataan: '{file_name}'...")
+        print(f"(Upload_to_azure) Ladataan: '{file_name}'...")
         with open(file_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
             
-        return f"Tiedosto '{file_name}' ladattu onnistuneesti."
+        return f"Tiedosto '{file_name}' (upload_to_azure) ladattu onnistuneesti."
     
     except Exception as e:
         return f"Virhe tiedoston '{file_name}' kohdalla: {e}"
@@ -66,7 +104,7 @@ def upload_to_azure(file_path: str, file_name: str) -> str:
 
 #Mainly just does stuff to the directories that make it possible to handle/process the files
 if __name__ == "__main__":
-    print("\n--- Aloitetaan kansion skannaus ja lataus ---")
+    print("\n---(if__name__) Aloitetaan kansion skannaus ja lataus ---")
 
     # 1. Määritetään kansio
     source_dir = "FILES_TO_Process"
@@ -77,7 +115,6 @@ if __name__ == "__main__":
         full_path = os.path.join(source_dir, filename)
         auto_topic = identify_topic(full_path)
         upload_to_azure(full_path, filename, auto_topic)
-
 
 
     # Varmistetaan että kansio on olemassa
@@ -100,7 +137,7 @@ if __name__ == "__main__":
                 full_path = os.path.join(source_dir, filename)
                 
                 # Kutsutaan latausfunktiota
-                tulos = upload_to_azure(full_path, filename)
+                tulos = upload_to_azure(full_path, filename, auto_topic)
                 print(tulos)
 
     print("--- Prosessi valmis ---\n")
@@ -147,38 +184,7 @@ if __name__ == "__main__":
 
 #-------------------QUERY & HAKU OSUUS ALKAA-------------------------------------------------------
 
-# ─── Managed retriever ────────────────────────────────────────────────────────
-#
-# This is the whole point of "managed" RAG.
-# Instead of a local Chroma vector store, we point at an Azure AI Search index.
-# Azure handles embedding at query time if semantic/vector search is configured.
-#
-retriever = AzureAISearchRetriever(
-    service_name=AZURE_SERVICE,
-    index_name=AZURE_INDEX,
-    api_key=AZURE_KEY,
-    content_key=CONTENT_FIELD,   # the field in your index that contains the text
-    top_k=TOP_K,
-)
 
-# ─── LLM (Azure OpenAI via Azure AI Foundry) ─────────────────────────────────
-#
-# AzureChatOpenAI connects to a model deployment in your Azure AI Foundry hub.
-# The deployment name is set in the Portal — it's not the model name itself.
-#
-llm = AzureChatOpenAI(
-    azure_endpoint=AOAI_ENDPOINT,
-    api_key=AOAI_KEY,
-    azure_deployment=AOAI_DEPLOYMENT,
-    api_version=AOAI_API_VERSION,
-)
-
-# ─── State ────────────────────────────────────────────────────────────────────
-
-class State(TypedDict):
-    query: str           # user question
-    context: list[str]   # chunks returned by Azure AI Search
-    answer: str          # final LLM response
 
 
 # ─── Nodes ────────────────────────────────────────────────────────────────────
@@ -264,7 +270,3 @@ if __name__ == "__main__":
 
 
         print("\n" + "=" * 60 + "\n")
-
-
-
-
