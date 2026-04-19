@@ -120,18 +120,18 @@ AI-tools used:
 
 What doesn't work, what's hardcoded, what would need to change for production?
 
-    Source folder is currently hardcoded to a local folder and in production, this would likely be an automated trigger         from a SharePoint site, an email attachment, or a cloud upload UI.
+    Source folder is currently hardcoded to a local folder and in production, this would likely be an automated trigger from a SharePoint site, an email attachment, or a cloud upload UI.
 
     There's no error handling in the Graph and if the retriever fails, the whole graph crashes.
-    The code imports PfdReader, but the main upload function just sends the raw file and doesn't read or clean the PDF          content before uploading. This means that in case the PDF is a scanned image, the search won't be able to read it           without an OCR step.
+    The code imports PfdReader, but the main upload function just sends the raw file and doesn't read or clean the PDF content before uploading. This means that in case the PDF is a scanned image, the search won't be able to read it without an OCR step.
 
     Changes needed for production include:
 
-    Asynchronous processing: Using async/await for the Azure calls so the app doesn't freeze while waiting for a large          PDF to upload.
+    Asynchronous processing: Using async/await for the Azure calls so the app doesn't freeze while waiting for a large PDF to upload.
 
-    Vectorization Pipeline: An indexing splitter that breaks the documents into smaller, overlapping "chunks" so the            retriever can find the exact paragraph needed.
+    Vectorization Pipeline: An indexing splitter that breaks the documents into smaller, overlapping "chunks" so the retriever can find the exact paragraph needed.
 
-    Evaluation: A way to measure how "right" the answers are. We would need an evaluation layer to track if the AI is           actually using the context correctly over time.
+    Evaluation: A way to measure how "right" the answers are. We would need an evaluation layer to track if the AI is actually using the context correctly over time.
 
        
 
