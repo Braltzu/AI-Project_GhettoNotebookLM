@@ -110,3 +110,9 @@ The Querying engine follows a strict linear graph:
  License
 
 MIT License
+
+AI-tools used:
+
+    Claude
+    Google Gemini
+
