@@ -75,7 +75,7 @@ def identify_topic(file_path: str) -> str:
     reader = PdfReader(file_path)
 
     text_sample=""
-    for page in reader.pages[:2]: #reads first two pages
+    for page in reader.pages[:6]: #reads first two pages
         text_sample += page.extract_text()
 
     prompt =f"Analyze the following text and return ONLY a one-word specific category topic(e.g ,Coding, Python, Cooking, Person, Algorithm, Function) that describes it:\n\n{text_sample[:2000]}"
@@ -86,13 +86,13 @@ def identify_topic(file_path: str) -> str:
 
 
 #Upload to azure: This is where the files get sent to azure blob storage to be processed/indexed
-def upload_to_azure(file_path: str, file_name: str) -> str:
+def upload_to_azure(file_path: str, file_name: str, topic: str = None) -> str:
     """Lataa yksittäisen tiedoston Azureen."""
     try:
         blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
         blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=file_name)
 
-        print(f"(Upload_to_azure) Ladataan: '{file_name}'...")
+        print(f"(Upload_to_azure) Ladataan: '{file_name}' (Topic: {topic})...")
         with open(file_path, "rb") as data:
             blob_client.upload_blob(data, overwrite=True)
             
